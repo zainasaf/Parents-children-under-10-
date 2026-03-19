@@ -1,0 +1,287 @@
+---
+title: "Untitled"
+output: html_document
+date: "2025-09-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+```{r}
+
+library(here)
+library(tidyverse)
+
+```
+
+```{r}
+
+
+# Filter and calculate percentages
+results <- gender_age %>%
+  # Filter for England only (exclude Wales)
+  filter(Regions != "Wales") %>%
+  # Filter for ages 16-24 only (exclude 15 and under, and 25+)
+  filter(`Age (B) (11 categories)` %in% c(
+    "Aged 16 to 17 years", 
+    "Aged 18 to 19 years",
+    "Aged 20 to 21 years", 
+    "Aged 22 to 24 years"
+  )) %>%
+  # Create combined age categories
+  mutate(
+    age_group = case_when(
+      `Age (B) (11 categories)` == "Aged 16 to 17 years" ~ "16-17",
+      `Age (B) (11 categories)` %in% c("Aged 18 to 19 years", "Aged 20 to 21 years") ~ "18-21",
+      `Age (B) (11 categories)` == "Aged 22 to 24 years" ~ "22-24",
+      TRUE ~ "Other"
+    )
+  ) %>%
+  # Group by sex and combined age groups
+  group_by(`Sex (2 categories)`, age_group) %>%
+  summarise(
+    age_gender_total = sum(Observation, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  # Calculate denominators (total by sex) and percentages
+  group_by(`Sex (2 categories)`) %>%
+  mutate(
+    sex_total = sum(age_gender_total),
+    percentage = (age_gender_total / sex_total) * 100
+  ) %>%
+  ungroup()
+
+# View the results
+print(results)
+
+# Alternative view - pivot wider for easier comparison
+results_wide <- results %>%
+  select(`Sex (2 categories)`, age_group, percentage) %>%
+  pivot_wider(
+    names_from = `Sex (2 categories)`,
+    values_from = percentage,
+    names_prefix = "percent_"
+  )
+
+print(results_wide)
+
+# Summary by sex
+sex_summary <- results %>%
+  group_by(`Sex (2 categories)`) %>%
+  summarise(
+    total_count = sum(age_gender_total),
+    .groups = "drop"
+  )
+
+```
+
+```{r}
+
+gender_age <- read_csv(here("data", "data", "age_gender_ethnicity.csv"))
+
+# Filter and calculate ethnicity percentages
+ethnicity_results <- gender_age %>%
+  # Filter for England only (exclude Wales)
+  filter(Regions != "Wales") %>%
+  # Filter for ages 16-24 only
+  filter(`Age (B) (11 categories)` %in% c(
+    "Aged 16 to 17 years", 
+    "Aged 18 to 19 years",
+    "Aged 20 to 21 years", 
+    "Aged 22 to 24 years"
+  )) %>%
+  # Create broad ethnicity categories
+  mutate(
+    broad_ethnicity = case_when(
+      str_detect(`Ethnic group (20 categories)`, "Asian") ~ "Asian",
+      str_detect(`Ethnic group (20 categories)`, "Black") ~ "Black", 
+      str_detect(`Ethnic group (20 categories)`, "White") ~ "White",
+      str_detect(`Ethnic group (20 categories)`, "Mixed") ~ "Mixed",
+      TRUE ~ "Other"
+    )
+  ) %>%
+  # Group by broad ethnicity categories
+  group_by(broad_ethnicity) %>%
+  summarise(
+    ethnicity_total = sum(Observation, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  # Calculate percentages
+  mutate(
+    total_population = sum(ethnicity_total),
+    percentage = (ethnicity_total / total_population) * 100
+  ) %>%
+  # Arrange by percentage (largest first)
+  arrange(desc(percentage))
+
+# View the results
+print(ethnicity_results)
+
+# Create a summary table
+print("Ethnicity Distribution (16-24 years, England):")
+ethnicity_summary <- ethnicity_results %>%
+  select(broad_ethnicity, ethnicity_total, percentage) %>%
+  mutate(percentage = round(percentage, 2))
+
+print(ethnicity_summary)
+
+# Check what specific ethnicity categories were in the original data
+print("Original ethnicity categories in your data:")
+unique_ethnicities <- gender_age %>%
+  filter(Regions != "Wales") %>%
+  filter(`Age (B) (11 categories)` %in% c(
+    "Aged 16 to 17 years", 
+    "Aged 18 to 19 years",
+    "Aged 20 to 21 years", 
+    "Aged 22 to 24 years"
+  )) %>%
+  distinct(`Ethnic group (20 categories)`) %>%
+  arrange(`Ethnic group (20 categories)`)
+
+```
+
+```{r}
+
+gender_age <- read_csv(here("data", "data", "age_gender_ethnicity.csv"))
+
+# Filter and calculate regional percentages
+region_results <- gender_age %>%
+  # Filter out Wales
+  filter(Regions != "Wales") %>%
+  # Filter for ages 16-24 only
+  filter(`Age (B) (11 categories)` %in% c(
+    "Aged 16 to 17 years", 
+    "Aged 18 to 19 years",
+    "Aged 20 to 21 years", 
+    "Aged 22 to 24 years"
+  )) %>%
+  # Group by regions
+  group_by(Regions) %>%
+  summarise(
+    region_total = sum(Observation, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  # Calculate percentages
+  mutate(
+    total_population = sum(region_total),
+    percentage = (region_total / total_population) * 100
+  ) %>%
+  # Arrange by percentage (largest first)
+  arrange(desc(percentage))
+
+# View the results
+print(region_results)
+
+
+print(unique_ethnicities)
+
+```
+
+``{r}
+# Filter and calculate gender percentages
+gender_results <- gender_age %>%
+  # Filter out Wales
+  filter(Regions != "Wales") %>%
+  # Filter for ages 16-24 only
+  filter(`Age (B) (11 categories)` %in% c(
+    "Aged 16 to 17 years", 
+    "Aged 18 to 19 years",
+    "Aged 20 to 21 years", 
+    "Aged 22 to 24 years"
+  )) %>%
+  # Group by gender
+  group_by(`Sex (2 categories)`) %>%
+  summarise(
+    gender_total = sum(Observation, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  # Calculate percentages
+  mutate(
+    total_population = sum(gender_total),
+    percentage = (gender_total / total_population) * 100
+  ) %>%
+  # Arrange by percentage (largest first)
+  arrange(desc(percentage))
+
+# View the results
+print(gender_results)
+
+```
+
+```{r}
+
+
+gender_age <- read_csv(here("data", "data", "age_gender_ethnicity.csv"))
+
+
+library(tidyverse)
+library(here)
+
+# Read the data
+gender_age <- read_csv(here("data", "data", "age_gender_ethnicity.csv"))
+
+# Filter and calculate percentages with total population as denominator
+results <- gender_age %>%
+  # Filter for England only (exclude Wales)
+  filter(Regions != "Wales") %>%
+  # Filter for ages 16-24 only - INCLUDING 16-17!
+  filter(`Age (B) (11 categories)` %in% c(
+    "Aged 16 to 17 years",
+    "Aged 18 to 19 years",
+    "Aged 20 to 21 years", 
+    "Aged 22 to 24 years"
+  )) %>%
+  # Create combined age categories - INCLUDING 16-17!
+  mutate(
+    age_group = case_when(
+      `Age (B) (11 categories)` == "Aged 16 to 17 years" ~ "16-17",
+      `Age (B) (11 categories)` %in% c("Aged 18 to 19 years", "Aged 20 to 21 years") ~ "18-21",
+      `Age (B) (11 categories)` == "Aged 22 to 24 years" ~ "22-24",
+      TRUE ~ "Other"
+    )
+  ) %>%
+  # Group by sex and combined age groups
+  group_by(`Sex (2 categories)`, age_group) %>%
+  summarise(
+    age_gender_total = sum(Observation, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  # Calculate total population across ALL age-gender combinations
+  mutate(
+    total_population = sum(age_gender_total),
+    percentage = (age_gender_total / total_population) * 100
+  ) %>%
+  # Arrange by sex and age group for easy viewing
+  arrange(`Sex (2 categories)`, age_group)
+
+# View the results
+print(results)
+
+# Check that percentages sum to 100
+print(paste("Total percentage check:", round(sum(results$percentage), 2), "%"))
+
+# Alternative view - pivot wider for easier comparison
+results_wide <- results %>%
+  select(`Sex (2 categories)`, age_group, percentage) %>%
+  pivot_wider(
+    names_from = `Sex (2 categories)`,
+    values_from = percentage,
+    names_prefix = "percent_"
+  )
+
+print("Age-Gender Distribution (16-24 years, England):")
+print(results_wide)
+
+# Summary by sex (showing what % of total population each sex represents)
+sex_summary <- results %>%
+  group_by(`Sex (2 categories)`) %>%
+  summarise(
+    total_count = sum(age_gender_total),
+    total_percentage = sum(percentage),
+    .groups = "drop"
+  )
+
+print("Summary by Sex (% of total 16-24 population):")
+print(sex_summary)
